@@ -20,4 +20,12 @@ impl Scene for Simple2 {
 
         draw.to_frame(app, &frame).unwrap();
     }
+
+    fn start(&mut self, _app: &App) {
+        println!("Starting simple2");
+    }
+
+    fn finish(&mut self, _app: &App) {
+        println!("Finishing simple2");
+    }
 }
