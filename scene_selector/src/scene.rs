@@ -2,6 +2,6 @@ use common::*;
 use nannou::prelude::*;
 
 pub trait Scene {
-    fn update(&mut self, app: &App, update: Update);
+    fn event(&mut self, app: &App, event: Event);
     fn view(&self, app: &App, frame: Frame);
 }

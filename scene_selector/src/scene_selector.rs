@@ -17,16 +17,22 @@ impl SceneSelector {
 }
 
 impl Scene for SceneSelector {
-    fn update(&mut self, app: &App, update: Update) {
-        if app.keys.down.contains(&Key::LBracket) && self.current_scene > 0 {
-            self.current_scene -= 1;
-        } else if app.keys.down.contains(&Key::RBracket)
-            && self.current_scene < self.scenes.len() - 1
+    fn event(&mut self, app: &App, event: Event) {
+        if let Event::WindowEvent {
+            simple: Some(KeyPressed(key)),
+            ..
+        } = event
         {
-            self.current_scene += 1;
+            match key {
+                Key::LBracket if self.current_scene > 0 => self.current_scene -= 1,
+                Key::RBracket if self.current_scene < self.scenes.len() - 1 => {
+                    self.current_scene += 1
+                }
+                _ => {}
+            }
         }
 
-        self.scenes[self.current_scene].update(app, update);
+        self.scenes[self.current_scene].event(app, event);
     }
 
     fn view(&self, app: &App, frame: Frame) {
