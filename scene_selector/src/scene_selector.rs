@@ -14,6 +14,17 @@ impl SceneSelector {
             current_scene: 0,
         }
     }
+
+    pub fn event(&mut self, app: &App, event: Event) {
+        match event {
+            Event::WindowEvent {
+                simple: Some(window_event),
+                ..
+            } => self.window_event(app, window_event),
+            Event::Update(update) => self.update(app, update),
+            _ => {}
+        }
+    }
 }
 
 impl Scene for SceneSelector {
