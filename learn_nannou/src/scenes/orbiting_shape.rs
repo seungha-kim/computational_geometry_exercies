@@ -15,20 +15,18 @@ impl OrbitingShape {
 }
 
 impl Scene for OrbitingShape {
-    fn event(&mut self, app: &App, event: Event) {
-        if let Event::Update(_) = event {
-            let win_rect = app.window_rect();
-            let time = app.time * 3.0;
-            let x = map_range(time.cos(), -1.0, 1.0, win_rect.left(), win_rect.right());
-            let y = map_range(time.sin(), -1.0, 1.0, win_rect.bottom(), win_rect.top());
-            let pos = app
-                .mouse
-                .buttons
-                .left()
-                .if_down()
-                .unwrap_or(Point2::new(x, y));
-            self.position = pos;
-        }
+    fn update(&mut self, app: &App, _update: Update) {
+        let win_rect = app.window_rect();
+        let time = app.time * 3.0;
+        let x = map_range(time.cos(), -1.0, 1.0, win_rect.left(), win_rect.right());
+        let y = map_range(time.sin(), -1.0, 1.0, win_rect.bottom(), win_rect.top());
+        let pos = app
+            .mouse
+            .buttons
+            .left()
+            .if_down()
+            .unwrap_or(Point2::new(x, y));
+        self.position = pos;
     }
 
     fn view(&self, app: &App, frame: Frame) {

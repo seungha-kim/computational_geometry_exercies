@@ -11,8 +11,6 @@ impl Simple2 {
 }
 
 impl Scene for Simple2 {
-    fn event(&mut self, _app: &App, _event: Event) {}
-
     fn view(&self, app: &App, frame: Frame) {
         let draw = app.draw();
 

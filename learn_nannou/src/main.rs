@@ -18,7 +18,14 @@ fn model(_app: &App) -> SceneSelector {
 }
 
 fn event(app: &App, model: &mut SceneSelector, event: Event) {
-    model.event(app, event);
+    match event {
+        Event::WindowEvent {
+            simple: Some(window_event),
+            ..
+        } => model.window_event(app, window_event),
+        Event::Update(update) => model.update(app, update),
+        _ => {}
+    }
 }
 
 fn view(app: &App, model: &SceneSelector, frame: Frame) {

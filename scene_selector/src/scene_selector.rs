@@ -17,12 +17,8 @@ impl SceneSelector {
 }
 
 impl Scene for SceneSelector {
-    fn event(&mut self, app: &App, event: Event) {
-        if let Event::WindowEvent {
-            simple: Some(KeyPressed(key)),
-            ..
-        } = event
-        {
+    fn window_event(&mut self, app: &App, event: WindowEvent) {
+        if let KeyPressed(key) = event {
             match key {
                 Key::LBracket if self.current_scene > 0 => self.current_scene -= 1,
                 Key::RBracket if self.current_scene < self.scenes.len() - 1 => {
@@ -32,7 +28,11 @@ impl Scene for SceneSelector {
             }
         }
 
-        self.scenes[self.current_scene].event(app, event);
+        self.scenes[self.current_scene].window_event(app, event);
+    }
+
+    fn update(&mut self, app: &App, update: Update) {
+        self.scenes[self.current_scene].update(app, update);
     }
 
     fn view(&self, app: &App, frame: Frame) {
