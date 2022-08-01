@@ -2,6 +2,7 @@ mod convex_hull_2d;
 mod orbiting_shape;
 mod simple;
 mod simple2;
+mod text;
 
 use scene_selector::*;
 
@@ -11,5 +12,6 @@ pub fn all_scenes() -> SceneSelector {
         Box::new(simple::SimpleScene::new()),
         Box::new(simple2::Simple2::new()),
         Box::new(orbiting_shape::OrbitingShape::new()),
+        Box::new(text::TextTestScene::new()),
     ])
 }
