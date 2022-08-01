@@ -2,6 +2,8 @@ use common::nannou::prelude::*;
 use scene_selector::Scene;
 use std::cmp::Ordering;
 
+const GRID_COUNT: f32 = 30.0;
+
 pub struct ConvexHull2D {
     point_count_exp: u32,
     points: Vec<Point2>,
@@ -20,14 +22,16 @@ impl<'a> Viewport<'a> {
 }
 
 fn is_right_turn(p1: Point2, p2: Point2, p3: Point2) -> bool {
-    assert_ne!(p1, p2);
-    assert_ne!(p2, p3);
+    if p1 == p2 || p2 == p3 || p3 == p1 {
+        return false;
+    }
     (p2 - p1).angle_between(p3 - p2) <= 0.0
 }
 
 fn is_left_turn(p1: Point2, p2: Point2, p3: Point2) -> bool {
-    assert_ne!(p1, p2);
-    assert_ne!(p2, p3);
+    if p1 == p2 || p2 == p3 || p3 == p1 {
+        return false;
+    }
     (p2 - p1).angle_between(p3 - p2) >= 0.0
 }
 
@@ -52,7 +56,7 @@ impl ConvexHull2D {
             let x = random_radian.cos();
             let y = random_radian.sin();
             let random_radius = random_range(0.0, 1.0).sqrt();
-            let result = random_radius * pt2(x, y);
+            let result = (GRID_COUNT * random_radius * pt2(x, y)).round() / GRID_COUNT;
             self.points.push(result);
         }
         self.points
