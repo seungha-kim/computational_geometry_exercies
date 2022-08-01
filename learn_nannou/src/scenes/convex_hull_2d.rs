@@ -118,6 +118,7 @@ impl ConvexHull2D {
         }
     }
 
+    #[allow(dead_code)]
     fn draw_line_strip(&self, draw: &Draw, viewport: &Viewport) {
         for (p1, p2) in self.points.iter().skip(1).zip(self.points.iter()) {
             draw.line()
