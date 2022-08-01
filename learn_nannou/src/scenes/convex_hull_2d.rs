@@ -1,3 +1,4 @@
+use super::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::Scene;
 use std::cmp::Ordering;
@@ -9,16 +10,6 @@ pub struct ConvexHull2D {
     points: Vec<Point2>,
     upper_hull: Vec<Point2>,
     lower_hull: Vec<Point2>,
-}
-
-struct Viewport<'a> {
-    rect: &'a Rect,
-}
-
-impl<'a> Viewport<'a> {
-    fn rel_to_abs(&self, point: Point2) -> Point2 {
-        self.rect.wh() * point * 0.5
-    }
 }
 
 fn is_right_turn(p1: Point2, p2: Point2, p3: Point2) -> bool {
