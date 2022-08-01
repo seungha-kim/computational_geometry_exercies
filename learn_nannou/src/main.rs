@@ -1,6 +1,5 @@
 mod scenes;
 
-use self::scenes::*;
 use common::*;
 use nannou::prelude::*;
 use scene_selector::*;
@@ -10,11 +9,7 @@ fn main() {
 }
 
 fn model(_app: &App) -> SceneSelector {
-    SceneSelector::new(vec![
-        Box::new(SimpleScene::new()),
-        Box::new(Simple2::new()),
-        Box::new(OrbitingShape::new()),
-    ])
+    scenes::all_scenes()
 }
 
 fn event(app: &App, model: &mut SceneSelector, event: Event) {
