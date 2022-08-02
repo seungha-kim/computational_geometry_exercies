@@ -1,10 +1,13 @@
 use super::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::*;
+use std::time::SystemTime;
 
 pub struct LineSegmentIntersection {
     segment_count_exp: u32,
     segments: Vec<LineSegment>,
+    intersections: Vec<Point2>,
+    reset_time_taken: f32,
 }
 
 struct LineSegment(Point2, Point2);
@@ -52,6 +55,8 @@ impl LineSegmentIntersection {
         let mut result = Self {
             segment_count_exp: 5,
             segments: Vec::new(),
+            intersections: Vec::new(),
+            reset_time_taken: 0.0,
         };
         result.reset();
         result
@@ -70,13 +75,28 @@ impl LineSegmentIntersection {
     }
 
     fn reset(&mut self) {
+        let start_time = SystemTime::now();
         self.segments.clear();
+        self.intersections.clear();
         for _ in 0..2u32.pow(self.segment_count_exp) {
             self.segments.push(LineSegment::new(
                 pt2(random_range(-1.0, 1.0), random_range(-1.0, 1.0)),
                 pt2(random_range(-1.0, 1.0), random_range(-1.0, 1.0)),
             ));
         }
+
+        // TODO: itertools combinations + rayon parallelism
+        for i in 0..self.segments.len() - 1 {
+            for j in i..self.segments.len() {
+                let s1 = &self.segments[i];
+                let s2 = &self.segments[j];
+                if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
+                    self.intersections.push(intersection);
+                }
+            }
+        }
+        let duration = SystemTime::now().duration_since(start_time).unwrap();
+        self.reset_time_taken = duration.as_secs_f32();
     }
 }
 
@@ -101,25 +121,32 @@ impl Scene for LineSegmentIntersection {
             draw.line()
                 .start(viewport.rel_to_abs(*p1))
                 .end(viewport.rel_to_abs(*p2))
-                .weight(3.0)
+                .weight(1.0)
                 .color(GREEN);
         }
 
-        // TODO: itertools combinations + rayon parallelism
-        for i in 0..self.segments.len() - 1 {
-            for j in i..self.segments.len() {
-                let s1 = &self.segments[i];
-                let s2 = &self.segments[j];
-                if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
-                    draw.ellipse()
-                        .radius(3.0)
-                        .no_fill()
-                        .stroke_weight(2.0)
-                        .xy(viewport.rel_to_abs(intersection))
-                        .color(BLACK);
-                }
+        if self.intersections.len() < 1000 {
+            for intersection in &self.intersections {
+                draw.ellipse()
+                    .radius(3.0)
+                    .xy(viewport.rel_to_abs(*intersection))
+                    .color(BLACK);
             }
         }
+
+        let text_rect = Rect::from_w_h(viewport.rect.w(), 100.0).bottom_right_of(*viewport.rect);
+        draw.text(&format!(
+            "segments: {}\nintersections: {}\nreset: {:.2}\nframe: {:.2}",
+            self.segments.len(),
+            self.intersections.len(),
+            self.reset_time_taken,
+            app.duration.since_prev_update.as_secs_f32(),
+        ))
+        .xy(text_rect.xy())
+        .wh(text_rect.wh())
+        .color(BLACK)
+        .align_text_bottom()
+        .right_justify();
 
         draw.to_frame(app, &frame).unwrap();
     }
