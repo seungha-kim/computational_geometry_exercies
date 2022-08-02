@@ -15,6 +15,9 @@ impl OrbitingShape {
 }
 
 impl Scene for OrbitingShape {
+    fn loop_mode(&self) -> LoopMode {
+        LoopMode::RefreshSync
+    }
     fn update(&mut self, app: &App, _update: Update) {
         let win_rect = app.window_rect();
         let time = app.time * 3.0;

@@ -2,6 +2,9 @@ use common::*;
 use nannou::prelude::*;
 
 pub trait Scene {
+    fn loop_mode(&self) -> LoopMode {
+        LoopMode::Wait
+    }
     fn window_event(&mut self, _app: &App, _event: WindowEvent) {}
     fn update(&mut self, _app: &App, _update: Update) {}
     fn view(&self, app: &App, frame: Frame);

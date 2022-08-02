@@ -36,6 +36,7 @@ impl SceneSelector {
     fn ensure_current_scene_started(&mut self, app: &App) {
         if self.needs_start_scene {
             self.current_scene().start(app);
+            app.set_loop_mode(self.current_scene().loop_mode());
             self.needs_start_scene = false;
         }
     }
