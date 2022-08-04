@@ -1,6 +1,8 @@
 use super::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::*;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 pub struct LineSegmentIntersection {
@@ -8,18 +10,32 @@ pub struct LineSegmentIntersection {
     segments: Vec<LineSegment>,
     intersections: Vec<Point2>,
     reset_time_taken: f32,
+    event_queue: BTreeMap<EventPointKey, EventPoint>,
 }
 
-struct LineSegment(Point2, Point2);
+struct LineSegment {
+    id: LineSegmentId,
+    p1: Point2,
+    p2: Point2,
+}
 
 impl LineSegment {
     fn new(p1: Point2, p2: Point2) -> Self {
         assert_ne!(p1, p2);
-        Self(p1, p2)
+        let id = unsafe {
+            ID_SOURCE += 1;
+            ID_SOURCE
+        };
+        Self { id, p1, p2 }
     }
+
     fn find_intersection(s1: &LineSegment, s2: &LineSegment) -> Option<Point2> {
-        let LineSegment(s1p1, s1p2) = s1;
-        let LineSegment(s2p1, s2p2) = s2;
+        let LineSegment {
+            p1: s1p1, p2: s1p2, ..
+        } = s1;
+        let LineSegment {
+            p1: s2p1, p2: s2p2, ..
+        } = s2;
         let v1 = *s1p2 - *s1p1;
         let v2 = *s2p2 - *s2p1;
 
@@ -57,6 +73,7 @@ impl LineSegmentIntersection {
             segments: Vec::new(),
             intersections: Vec::new(),
             reset_time_taken: 0.0,
+            event_queue: BTreeMap::new(),
         };
         result.reset();
         result
@@ -85,6 +102,36 @@ impl LineSegmentIntersection {
             ));
         }
 
+        self.find_intersections_brute_force();
+
+        for s in &self.segments {
+            let k1 = EventPointKey(s.p1);
+            let k2 = EventPointKey(s.p2);
+            let (upper_endpoint, lower_endpoint) = if k1 < k2 { (k1, k2) } else { (k2, k1) };
+
+            {
+                if !self.event_queue.contains_key(&upper_endpoint) {
+                    let event_point = EventPoint::new();
+                    self.event_queue.insert(upper_endpoint.clone(), event_point);
+                }
+                let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
+                ep.as_upper_endpoint.push(s.id);
+            }
+            {
+                if !self.event_queue.contains_key(&lower_endpoint) {
+                    let event_point = EventPoint::new();
+                    self.event_queue.insert(lower_endpoint, event_point);
+                }
+                let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
+                ep.as_lower_endpoint.push(s.id);
+            }
+        }
+
+        let duration = SystemTime::now().duration_since(start_time).unwrap();
+        self.reset_time_taken = duration.as_secs_f32();
+    }
+
+    fn find_intersections_brute_force(&mut self) {
         // TODO: itertools combinations + rayon parallelism
         for i in 0..self.segments.len() - 1 {
             for j in i..self.segments.len() {
@@ -95,8 +142,6 @@ impl LineSegmentIntersection {
                 }
             }
         }
-        let duration = SystemTime::now().duration_since(start_time).unwrap();
-        self.reset_time_taken = duration.as_secs_f32();
     }
 }
 
@@ -117,7 +162,7 @@ impl Scene for LineSegmentIntersection {
 
         draw.background().color(LINEN);
 
-        for LineSegment(p1, p2) in &self.segments {
+        for LineSegment { p1, p2, .. } in &self.segments {
             draw.line()
                 .start(viewport.rel_to_abs(*p1))
                 .end(viewport.rel_to_abs(*p2))
@@ -132,6 +177,13 @@ impl Scene for LineSegmentIntersection {
                     .xy(viewport.rel_to_abs(*intersection))
                     .color(BLACK);
             }
+        }
+
+        for (ek, _) in &self.event_queue {
+            draw.ellipse()
+                .radius(5.0)
+                .xy(viewport.rel_to_abs((*ek).0))
+                .color(BLUE);
         }
 
         let text_rect = Rect::from_w_h(viewport.rect.w(), 100.0).bottom_right_of(*viewport.rect);
@@ -149,5 +201,50 @@ impl Scene for LineSegmentIntersection {
         .right_justify();
 
         draw.to_frame(app, &frame).unwrap();
+    }
+}
+
+// ---
+
+struct EventPoint {
+    as_upper_endpoint: Vec<LineSegmentId>,
+    as_lower_endpoint: Vec<LineSegmentId>,
+    as_interior: Vec<LineSegmentId>,
+}
+
+impl EventPoint {
+    fn new() -> Self {
+        Self {
+            as_upper_endpoint: Vec::new(),
+            as_lower_endpoint: Vec::new(),
+            as_interior: Vec::new(),
+        }
+    }
+}
+
+static mut ID_SOURCE: u32 = 0;
+
+type LineSegmentId = u32;
+
+#[derive(Clone, Copy, PartialEq)]
+struct EventPointKey(Point2);
+
+impl Eq for EventPointKey {}
+
+impl PartialOrd for EventPointKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let x_cmp = self.0.x.partial_cmp(&other.0.x);
+        let y_cmp = self.0.y.partial_cmp(&other.0.y);
+        match (y_cmp, x_cmp) {
+            (Some(Ordering::Equal), Some(ord)) => Some(ord),
+            (Some(ord), _) => Some(ord.reverse()),
+            _ => panic!("Cannot determine order"),
+        }
+    }
+}
+
+impl Ord for EventPointKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
