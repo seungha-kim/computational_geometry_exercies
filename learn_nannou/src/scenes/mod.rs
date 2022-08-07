@@ -4,13 +4,12 @@ mod orbiting_shape;
 mod simple;
 mod simple2;
 mod text;
-mod viewport;
 
 use scene_selector::*;
 
 pub fn all_scenes() -> SceneSelector {
     SceneSelector::new(vec![
-        Box::new(line_segment_intersection::LineSegmentIntersection::new()),
+        Box::new(line_segment_intersection::SceneState::new()),
         Box::new(convex_hull_2d::ConvexHull2D::new()),
         Box::new(simple::SimpleScene::new()),
         Box::new(simple2::Simple2::new()),

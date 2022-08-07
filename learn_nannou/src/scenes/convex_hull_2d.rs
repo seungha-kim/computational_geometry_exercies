@@ -1,4 +1,4 @@
-use super::viewport::Viewport;
+use crate::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::Scene;
 use std::cmp::Ordering;
