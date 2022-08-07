@@ -5,6 +5,7 @@ use super::logic::{
 use crate::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::*;
+use std::time::SystemTime;
 
 pub struct SceneState {
     segment_count_exp: u32,
@@ -17,12 +18,8 @@ pub struct SceneState {
 impl SceneState {
     pub fn new() -> Self {
         let segment_count_exp = 5;
-        let reset_time_taken = 0.0;
         let strategy = LineSegmentIntersectionStrategy::BruteForce;
-        let segments = Self::generate_random_segments(2u32.pow(segment_count_exp));
-        let result = LineSegmentIntersectionBuilder::new()
-            .strategy(strategy)
-            .build_from_iter(segments.iter());
+        let (segments, result, reset_time_taken) = Self::calc_result(strategy, segment_count_exp);
         Self {
             segment_count_exp,
             reset_time_taken,
@@ -56,10 +53,25 @@ impl SceneState {
     }
 
     fn recalc_result(&mut self) {
-        self.segments = Self::generate_random_segments(2u32.pow(self.segment_count_exp));
-        self.result = LineSegmentIntersectionBuilder::new()
-            .strategy(self.strategy)
-            .build_from_iter(self.segments.iter());
+        let (segments, result, reset_time_taken) =
+            Self::calc_result(self.strategy, self.segment_count_exp);
+        self.segments = segments;
+        self.result = result;
+        self.reset_time_taken = reset_time_taken;
+    }
+
+    fn calc_result(
+        strategy: LineSegmentIntersectionStrategy,
+        segment_count_exp: u32,
+    ) -> (Vec<LineSegment>, LineSegmentIntersectionResult, f32) {
+        let start_time = SystemTime::now();
+        let segments = Self::generate_random_segments(2u32.pow(segment_count_exp));
+        let result = LineSegmentIntersectionBuilder::new()
+            .strategy(strategy)
+            .build_from_iter(segments.iter());
+        let duration = SystemTime::now().duration_since(start_time).unwrap();
+        let reset_time_taken = duration.as_secs_f32();
+        (segments, result, reset_time_taken)
     }
 }
 
