@@ -1,15 +1,15 @@
-use super::logic::{LineSegment, LineSegmentIntersectionBuilder, LineSegmentIntersectionResult};
+use super::logic::{
+    LineSegment, LineSegmentIntersectionBuilder, LineSegmentIntersectionResult,
+    LineSegmentIntersectionStrategy,
+};
 use crate::viewport::Viewport;
 use common::nannou::prelude::*;
 use scene_selector::*;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, Bound, HashMap};
-use std::ops::Neg;
-use std::time::SystemTime;
 
 pub struct SceneState {
     segment_count_exp: u32,
     reset_time_taken: f32,
+    strategy: LineSegmentIntersectionStrategy,
     segments: Vec<LineSegment>,
     result: LineSegmentIntersectionResult,
 }
@@ -18,11 +18,15 @@ impl SceneState {
     pub fn new() -> Self {
         let segment_count_exp = 5;
         let reset_time_taken = 0.0;
+        let strategy = LineSegmentIntersectionStrategy::BruteForce;
         let segments = Self::generate_random_segments(2u32.pow(segment_count_exp));
-        let result = LineSegmentIntersectionBuilder::new().build_from_iter(segments.iter());
+        let result = LineSegmentIntersectionBuilder::new()
+            .strategy(strategy)
+            .build_from_iter(segments.iter());
         Self {
             segment_count_exp,
             reset_time_taken,
+            strategy,
             segments,
             result,
         }
@@ -53,7 +57,9 @@ impl SceneState {
 
     fn recalc_result(&mut self) {
         self.segments = Self::generate_random_segments(2u32.pow(self.segment_count_exp));
-        self.result = LineSegmentIntersectionBuilder::new().build_from_iter(self.segments.iter());
+        self.result = LineSegmentIntersectionBuilder::new()
+            .strategy(self.strategy)
+            .build_from_iter(self.segments.iter());
     }
 }
 
@@ -97,7 +103,8 @@ impl Scene for SceneState {
 
         let text_rect = Rect::from_w_h(viewport.rect.w(), 100.0).bottom_right_of(*viewport.rect);
         draw.text(&format!(
-            "segments: {}\nintersections: {}\nreset: {:.2}\nframe: {:.2}",
+            "strategy: {:?}\nsegments: {}\nintersections: {}\nreset: {:.2}\nframe: {:.2}",
+            self.strategy,
             self.segments.len(),
             self.result.intersections.len(),
             self.reset_time_taken,

@@ -1,4 +1,8 @@
 use common::nannou::prelude::*;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet, Bound, HashMap};
+use std::ops::Neg;
+use std::time::SystemTime;
 
 type LineSegmentId = u32;
 
@@ -58,7 +62,7 @@ impl LineSegment {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum LineSegmentIntersectionStrategy {
     BruteForce,
     BruteForceParallel,
