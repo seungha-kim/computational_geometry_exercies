@@ -3,12 +3,14 @@ use super::distinct_point::DistinctPoint;
 use super::event_queue::{EventPoint, EventPointKey};
 use super::status::{Status, StatusItem};
 use super::Input;
+use common::nannou::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, Bound};
 
 pub struct Executor<'a> {
     input: Input<'a>,
     event_queue: BTreeMap<EventPointKey, EventPoint>,
     status: Status,
+    output: BTreeSet<DistinctPoint>,
 }
 
 impl<'a> Executor<'a> {
@@ -17,37 +19,19 @@ impl<'a> Executor<'a> {
             input,
             event_queue: BTreeMap::new(),
             status: Status::new(),
+            output: BTreeSet::new(),
         }
     }
 
     pub fn calc_result(mut self) -> LineSegmentIntersectionResult {
-        LineSegmentIntersectionResult {
-            intersections: Vec::new(),
+        self.initialize_event_queue();
+        while let Some(key) = self.event_queue.keys().cloned().next() {
+            let event_point = self.event_queue.remove(&key).unwrap();
+            self.handle_event_point(key.0, event_point);
         }
-        // let mut intersections: BTreeSet<DistinctPoint> = BTreeSet::new();
-        // for (id, s) in &self.input.segments {
-        //     let k1 = EventPointKey(s.p1);
-        //     let k2 = EventPointKey(s.p2);
-        //     let (upper_endpoint, lower_endpoint) = if k1 < k2 { (k1, k2) } else { (k2, k1) };
-        //
-        //     {
-        //         if !self.event_queue.contains_key(&upper_endpoint) {
-        //             let event_point = EventPoint::new();
-        //             self.event_queue.insert(upper_endpoint.clone(), event_point);
-        //         }
-        //         let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
-        //         ep.as_upper_endpoint.push(*id);
-        //     }
-        //     {
-        //         if !self.event_queue.contains_key(&lower_endpoint) {
-        //             let event_point = EventPoint::new();
-        //             self.event_queue.insert(lower_endpoint, event_point);
-        //         }
-        //         let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
-        //         ep.as_lower_endpoint.push(*id);
-        //     }
-        // }
-        //
+        LineSegmentIntersectionResult {
+            intersections: self.output.into_iter().map(|item| item.0).collect(),
+        }
         // // 다음 단계에서 이전 단계의 status item 을 찾아서 순서를 바꿔줘야 하는데... 어떻게 해야 할까
         // // -> 순서가 바깥 정보에 의존성이 있으니, 그냥 직접 binary tree 를 구현하자
         //
@@ -145,5 +129,61 @@ impl<'a> Executor<'a> {
         // LineSegmentIntersectionResult {
         //     intersections: intersections.into_iter().collect(),
         // }
+    }
+
+    fn initialize_event_queue(&mut self) {
+        for (id, s) in &self.input.segments {
+            let k1 = EventPointKey(s.p1);
+            let k2 = EventPointKey(s.p2);
+            let (upper_endpoint, lower_endpoint) = if k1 < k2 { (k1, k2) } else { (k2, k1) };
+
+            {
+                if !self.event_queue.contains_key(&upper_endpoint) {
+                    let event_point = EventPoint::new();
+                    self.event_queue.insert(upper_endpoint.clone(), event_point);
+                }
+                let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
+                ep.as_upper_endpoint.push(*id);
+            }
+            {
+                if !self.event_queue.contains_key(&lower_endpoint) {
+                    let event_point = EventPoint::new();
+                    self.event_queue.insert(lower_endpoint, event_point);
+                }
+                let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
+                ep.as_lower_endpoint.push(*id);
+            }
+        }
+    }
+
+    fn handle_event_point(&mut self, point: Point2, event_point: EventPoint) {
+        let upper_count = event_point.as_upper_endpoint.len();
+        let lower_count = event_point.as_lower_endpoint.len();
+        let interior_count = event_point.as_interior.len();
+        if upper_count + lower_count + interior_count > 1 {
+            self.output.insert(DistinctPoint(point.clone()));
+        }
+        for id in &event_point.as_lower_endpoint {
+            self.status.remove(*id);
+        }
+        for id in &event_point.as_interior {
+            let item = self.status.remove(*id).unwrap();
+            self.status.push(item);
+        }
+        for id in event_point.as_upper_endpoint {
+            let dir_x = self.input.segments[&id].downward_direction().x;
+            let item = StatusItem::new(id, dir_x);
+            self.status.push(item);
+        }
+        self.status.sort(point, &self.input);
+        if upper_count + interior_count == 0 {
+            if let (Some(left_item), Some(right_item)) =
+                self.status.find_left_and_right(point, &self.input)
+            {
+                // TODO: find_new_event(s_l, s_r, p)
+            } else {
+                // TODO: ...
+            }
+        }
     }
 }

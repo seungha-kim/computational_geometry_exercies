@@ -14,9 +14,13 @@ impl LineSegment {
     }
 
     pub fn downward_direction(&self) -> Vec2 {
-        let mut normalized = Vec2::new(self.p2.x - self.p1.x, self.p2.y - self.p1.y).normalize();
+        let mut normalized =
+            Vec2::new(self.p2.x - self.p1.x, self.p2.y - self.p1.y).normalize_or_zero();
+        assert_ne!(normalized, Vec2::ZERO);
         if normalized.y > 0.0 {
             normalized = -normalized;
+        } else if normalized.y == 0.0 {
+            normalized.x = 1.0;
         }
         normalized
     }
