@@ -41,3 +41,36 @@ impl EventPoint {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common::nannou::prelude::*;
+    #[test]
+    fn it_works_1() {
+        let p1 = EventPointKey(pt2(0.0, 0.0));
+        let p2 = EventPointKey(pt2(0.0, -1.0));
+        assert_eq!(p1.cmp(&p2), Ordering::Less);
+    }
+
+    #[test]
+    fn it_works_2() {
+        let p1 = EventPointKey(pt2(0.0, 0.0));
+        let p2 = EventPointKey(pt2(1.0, 0.0));
+        assert_eq!(p1.cmp(&p2), Ordering::Less);
+    }
+
+    #[test]
+    fn it_works_3() {
+        let p1 = EventPointKey(pt2(1.0, 0.0));
+        let p2 = EventPointKey(pt2(0.0, -1.0));
+        assert_eq!(p1.cmp(&p2), Ordering::Less);
+    }
+
+    #[test]
+    fn it_works_4() {
+        let p1 = EventPointKey(pt2(0.0, 0.0));
+        let p2 = EventPointKey(pt2(0.0, 0.0));
+        assert_eq!(p1.cmp(&p2), Ordering::Equal);
+    }
+}
