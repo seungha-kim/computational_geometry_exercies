@@ -3,6 +3,7 @@ use super::distinct_point::DistinctPoint;
 use super::event_queue::{EventPoint, EventPointKey};
 use super::status::{Status, StatusItem};
 use super::Input;
+use crate::scenes::line_segment_intersection::logic::LineSegmentId;
 use common::nannou::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, Bound};
 
@@ -143,7 +144,7 @@ impl<'a> Executor<'a> {
                     self.event_queue.insert(upper_endpoint.clone(), event_point);
                 }
                 let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
-                ep.as_upper_endpoint.push(*id);
+                ep.as_upper_endpoint.insert(*id);
             }
             {
                 if !self.event_queue.contains_key(&lower_endpoint) {
@@ -151,7 +152,7 @@ impl<'a> Executor<'a> {
                     self.event_queue.insert(lower_endpoint, event_point);
                 }
                 let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
-                ep.as_lower_endpoint.push(*id);
+                ep.as_lower_endpoint.insert(*id);
             }
         }
     }
@@ -180,9 +181,34 @@ impl<'a> Executor<'a> {
             if let (Some(left_item), Some(right_item)) =
                 self.status.find_left_and_right(point, &self.input)
             {
-                // TODO: find_new_event(s_l, s_r, p)
+                self.find_new_event(left_item.line_segment_id, right_item.line_segment_id, point);
             } else {
                 // TODO: ...
+            }
+        }
+    }
+
+    fn find_new_event(
+        &mut self,
+        s1_id: LineSegmentId,
+        s2_id: LineSegmentId,
+        current_point: Point2,
+    ) {
+        let s1 = self.input.segments[&s1_id];
+        let s2 = self.input.segments[&s2_id];
+        if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
+            if intersection.y < current_point.y
+                || (intersection.y == current_point.y && intersection.x > current_point.x)
+            {
+                let key = EventPointKey(current_point);
+                if !self.event_queue.contains_key(&key) {
+                    self.event_queue.insert(key, EventPoint::new());
+                }
+                {
+                    let event_point = self.event_queue.get_mut(&key).unwrap();
+                    event_point.as_interior.insert(s1_id);
+                    event_point.as_interior.insert(s2_id);
+                }
             }
         }
     }

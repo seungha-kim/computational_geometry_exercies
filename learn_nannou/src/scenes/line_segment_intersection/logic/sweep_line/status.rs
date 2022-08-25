@@ -5,7 +5,7 @@ use std::cmp::{max, Ordering};
 
 #[derive(Clone)]
 pub struct StatusItem {
-    line_segment_id: LineSegmentId,
+    pub line_segment_id: LineSegmentId,
     normalized_downward_dir_x: f32,
 }
 

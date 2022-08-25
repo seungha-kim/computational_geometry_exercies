@@ -1,6 +1,7 @@
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
 use common::nannou::geom::Point2;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct EventPointKey(pub Point2);
@@ -26,17 +27,17 @@ impl Ord for EventPointKey {
 }
 
 pub struct EventPoint {
-    pub as_upper_endpoint: Vec<LineSegmentId>,
-    pub as_lower_endpoint: Vec<LineSegmentId>,
-    pub as_interior: Vec<LineSegmentId>,
+    pub as_upper_endpoint: HashSet<LineSegmentId>,
+    pub as_lower_endpoint: HashSet<LineSegmentId>,
+    pub as_interior: HashSet<LineSegmentId>,
 }
 
 impl EventPoint {
     pub fn new() -> Self {
         Self {
-            as_upper_endpoint: Vec::new(),
-            as_lower_endpoint: Vec::new(),
-            as_interior: Vec::new(),
+            as_upper_endpoint: HashSet::new(),
+            as_lower_endpoint: HashSet::new(),
+            as_interior: HashSet::new(),
         }
     }
 }

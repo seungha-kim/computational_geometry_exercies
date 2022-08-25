@@ -18,7 +18,7 @@ pub struct SceneState {
 impl SceneState {
     pub fn new() -> Self {
         let segment_count_exp = 5;
-        let strategy = LineSegmentIntersectionStrategy::BruteForce;
+        let strategy = LineSegmentIntersectionStrategy::SweepLine;
         let (segments, result, reset_time_taken) = Self::calc_result(strategy, segment_count_exp);
         Self {
             segment_count_exp,

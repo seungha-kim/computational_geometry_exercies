@@ -19,7 +19,8 @@ impl LineSegment {
         assert_ne!(normalized, Vec2::ZERO);
         if normalized.y > 0.0 {
             normalized = -normalized;
-        } else if normalized.y == 0.0 {
+        }
+        if normalized.x <= -1.0 {
             normalized.x = 1.0;
         }
         normalized

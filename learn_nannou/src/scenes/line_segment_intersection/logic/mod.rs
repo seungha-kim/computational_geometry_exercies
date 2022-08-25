@@ -44,7 +44,7 @@ impl LineSegmentIntersectionBuilder {
                 brute_force::calc_intersections_brute_force(vals)
             }
             LineSegmentIntersectionStrategy::BruteForceParallel => todo!(),
-            LineSegmentIntersectionStrategy::SweepLine => todo!(),
+            LineSegmentIntersectionStrategy::SweepLine => sweep_line::calc_intersections(vals),
         }
     }
 }
