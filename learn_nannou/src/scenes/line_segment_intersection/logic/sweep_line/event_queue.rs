@@ -157,4 +157,42 @@ mod tests {
         let p2 = EventPoint(pt2(0.0, 0.0));
         assert_eq!(p1.cmp(&p2), Ordering::Equal);
     }
+
+    #[test]
+    fn event_queue_dequeue_oreder_test_1() {
+        let mut eq = EventQueue::new();
+        eq.insert_segment(pt2(0.0, 0.0), pt2(1.0, 1.0), 0);
+        eq.insert_segment(pt2(0.0, 1.0), pt2(1.0, 0.0), 1);
+        eq.insert_intersection(pt2(0.5, 0.5), 0, 1);
+
+        let (point, data) = eq.dequeue_point().unwrap();
+        assert_eq!(point, pt2(0.0, 1.0));
+        assert_eq!(data.as_upper_endpoint.len(), 1);
+        assert_eq!(data.as_lower_endpoint.len(), 0);
+        assert_eq!(data.as_intersection.len(), 0);
+
+        let (point, data) = eq.dequeue_point().unwrap();
+        assert_eq!(point, pt2(1.0, 1.0));
+        assert_eq!(data.as_upper_endpoint.len(), 1);
+        assert_eq!(data.as_lower_endpoint.len(), 0);
+        assert_eq!(data.as_intersection.len(), 0);
+
+        let (point, data) = eq.dequeue_point().unwrap();
+        assert_eq!(point, pt2(0.5, 0.5));
+        assert_eq!(data.as_upper_endpoint.len(), 0);
+        assert_eq!(data.as_lower_endpoint.len(), 0);
+        assert_eq!(data.as_intersection.len(), 2);
+
+        let (point, data) = eq.dequeue_point().unwrap();
+        assert_eq!(point, pt2(0.0, 0.0));
+        assert_eq!(data.as_upper_endpoint.len(), 0);
+        assert_eq!(data.as_lower_endpoint.len(), 1);
+        assert_eq!(data.as_intersection.len(), 0);
+
+        let (point, data) = eq.dequeue_point().unwrap();
+        assert_eq!(point, pt2(1.0, 0.0));
+        assert_eq!(data.as_upper_endpoint.len(), 0);
+        assert_eq!(data.as_lower_endpoint.len(), 1);
+        assert_eq!(data.as_intersection.len(), 0);
+    }
 }
