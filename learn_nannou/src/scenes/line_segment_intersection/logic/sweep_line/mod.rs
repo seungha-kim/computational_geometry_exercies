@@ -14,6 +14,7 @@ where
     I: Iterator<Item = &'a LineSegment>,
 {
     let segments = vals.enumerate().collect();
-    let executor = Executor::new(Input { segments });
+    let input = Input { segments };
+    let executor = Executor::new(&input);
     executor.calc_result()
 }

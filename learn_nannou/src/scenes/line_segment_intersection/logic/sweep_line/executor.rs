@@ -1,6 +1,7 @@
 use super::super::{LineSegment, LineSegmentIntersectionResult};
 use super::distinct_point::DistinctPoint;
 use super::event_queue::{EventData, EventQueue};
+use super::intersection_map::IntersectionCache;
 use super::status::{Status, StatusItem};
 use super::Input;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
@@ -8,18 +9,20 @@ use common::nannou::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, Bound};
 
 pub struct Executor<'a> {
-    input: Input<'a>,
-    event_queue: EventQueue,
+    input: &'a Input<'a>,
+    event_queue: EventQueue<'a>,
     status: Status,
+    intersection_cache: IntersectionCache,
     output: BTreeSet<DistinctPoint>,
 }
 
 impl<'a> Executor<'a> {
-    pub fn new(input: Input<'a>) -> Self {
+    pub fn new(input: &'a Input<'a>) -> Self {
         Self {
             input,
-            event_queue: EventQueue::new(),
+            event_queue: EventQueue::new(input),
             status: Status::new(),
+            intersection_cache: IntersectionCache::new(),
             output: BTreeSet::new(),
         }
     }
@@ -30,124 +33,27 @@ impl<'a> Executor<'a> {
             self.handle_event_point(point, data);
         }
         LineSegmentIntersectionResult {
-            intersections: self.output.into_iter().map(|item| item.0).collect(),
+            intersections: self.output.iter().map(|item| item.0).collect(),
         }
-        // // 다음 단계에서 이전 단계의 status item 을 찾아서 순서를 바꿔줘야 하는데... 어떻게 해야 할까
-        // // -> 순서가 바깥 정보에 의존성이 있으니, 그냥 직접 binary tree 를 구현하자
-        //
-        // while let Some(key) = self.event_queue.keys().cloned().next() {
-        //     let event = self.event_queue.remove(&key).unwrap();
-        //     // LOWER -> INTERIOR -> UPPER ?
-        //     // LOWER
-        //
-        //     for id in &event.as_lower_endpoint {
-        //         let s = self.input.segments[&id];
-        //         let item = StatusItem::new(*id, s.downward_direction());
-        //         self.status.push(item.clone());
-        //         // 좌우
-        //         let self_line = self.input.segments.get(id).unwrap();
-        //         if let Some(left) = self
-        //             .status
-        //             .range((Bound::Excluded(&item), Bound::Unbounded))
-        //             .next()
-        //         {
-        //             let left_line = self.input.segments.get(&left.line_segment_id).unwrap();
-        //             if let Some(intersection) = LineSegment::find_intersection(self_line, left_line)
-        //             {
-        //                 intersections.insert(DistinctPoint(intersection));
-        //                 // TODO: 이미 존재할 수 있음
-        //                 let mut new_event = EventPoint::new();
-        //                 new_event.as_interior.push(*id);
-        //                 new_event.as_interior.push(left_line.id);
-        //                 self.event_queue
-        //                     .insert(EventPointKey(intersection), new_event);
-        //             }
-        //         }
-        //         if let Some(right) = status
-        //             .range((Bound::Unbounded, Bound::Excluded(&item)))
-        //             .next()
-        //         {
-        //             let right_line = self.input.segments.get(&right.line_segment_id).unwrap();
-        //             if let Some(intersection) =
-        //                 LineSegment::find_intersection(self_line, right_line)
-        //             {
-        //                 intersections.insert(DistinctPoint(intersection));
-        //                 // TODO: 이미 존재할 수 있음
-        //                 let mut new_event = EventPoint::new();
-        //                 new_event.as_interior.push(*id);
-        //                 new_event.as_interior.push(right_line.id);
-        //                 self.event_queue
-        //                     .insert(EventPointKey(intersection), new_event);
-        //             }
-        //         }
-        //     }
-        //     // UPPER
-        //     for id in &event.as_upper_endpoint {
-        //         let s = &self.input.segments[&id];
-        //         let item = StatusItem::new(*id, s.downward_direction());
-        //         self.status.push(item.clone());
-        //         // 좌우
-        //         let self_line = self.input.segments.get(id).unwrap();
-        //         if let Some(left) = self
-        //             .status
-        //             .range((Bound::Excluded(&item), Bound::Unbounded))
-        //             .next()
-        //         {
-        //             let left_line = self.segments.get(&left.line_segment_id).unwrap();
-        //             if let Some(intersection) = LineSegment::find_intersection(self_line, left_line)
-        //             {
-        //                 intersections.push(intersection);
-        //                 // TODO: 이미 존재할 수 있음
-        //                 let mut new_event = EventPoint::new();
-        //                 new_event.as_interior.push(*id);
-        //                 new_event.as_interior.push(left_line.id);
-        //                 self.event_queue
-        //                     .insert(EventPointKey(intersection), new_event);
-        //             }
-        //         }
-        //         if let Some(right) = status
-        //             .range((Bound::Unbounded, Bound::Excluded(&item)))
-        //             .next()
-        //         {
-        //             let right_line = self.segments.get(&right.line_segment_id).unwrap();
-        //             if let Some(intersection) =
-        //                 LineSegment::find_intersection(self_line, right_line)
-        //             {
-        //                 intersections.insert(DistinctPoint(intersection));
-        //                 // TODO: 이미 존재할 수 있음
-        //                 let mut new_event = EventPoint::new();
-        //                 new_event.as_interior.push(*id);
-        //                 new_event.as_interior.push(right_line.id);
-        //                 self.event_queue
-        //                     .insert(EventPointKey(intersection), new_event);
-        //             }
-        //         }
-        //     }
-        //     // INTERIOR
-        // }
-        //
-        // LineSegmentIntersectionResult {
-        //     intersections: intersections.into_iter().collect(),
-        // }
     }
 
     fn initialize_event_queue(&mut self) {
-        for (id, s) in &self.input.segments {
-            self.event_queue.insert_segment(s.p1, s.p2, *id);
+        for id in self.input.segments.keys() {
+            self.event_queue.insert_segment(*id);
         }
     }
 
     fn handle_event_point(&mut self, point: Point2, event_point: EventData) {
         let upper_count = event_point.as_upper_endpoint.len();
         let lower_count = event_point.as_lower_endpoint.len();
-        let interior_count = event_point.as_intersection.len();
+        let interior_count = event_point.as_interior.len();
         if upper_count + lower_count + interior_count > 1 {
             self.output.insert(DistinctPoint(point.clone()));
         }
         for id in &event_point.as_lower_endpoint {
             self.status.remove(*id);
         }
-        for id in &event_point.as_intersection {
+        for id in &event_point.as_interior {
             let item = self.status.remove(*id).unwrap();
             self.status.push(item);
         }
@@ -176,13 +82,25 @@ impl<'a> Executor<'a> {
     ) {
         let s1 = self.input.segments[&s1_id];
         let s2 = self.input.segments[&s2_id];
-        if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
+        let intersection_opt = {
+            if let Some(p) = self.intersection_cache.lookup(s1_id, s2_id) {
+                Some(*p)
+            } else {
+                if let Some(intersection) = LineSegment::find_interior_intersection(s1, s2) {
+                    self.intersection_cache.insert(s1_id, s2_id, intersection);
+                    self.output.insert(DistinctPoint(intersection));
+                    Some(intersection)
+                } else {
+                    None
+                }
+            }
+        };
+        if let Some(intersection) = intersection_opt {
             if intersection.y < current_point.y
                 || (intersection.y == current_point.y && intersection.x > current_point.x)
             {
                 self.event_queue
                     .insert_intersection(intersection, s1_id, s2_id);
-                // TODO: output에 추가
             }
         }
     }

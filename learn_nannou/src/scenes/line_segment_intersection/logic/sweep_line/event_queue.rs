@@ -1,3 +1,4 @@
+use super::input::Input;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
 use common::nannou::geom::Point2;
 use std::cmp::Ordering;
@@ -34,14 +35,16 @@ pub enum EventKind {
     AsIntersection,
 }
 
-pub struct EventQueue {
+pub struct EventQueue<'a> {
     map: BTreeMap<EventPoint, EventData>,
+    input: &'a Input<'a>,
 }
 
-impl EventQueue {
-    pub fn new() -> Self {
+impl<'a> EventQueue<'a> {
+    pub fn new(input: &'a Input) -> Self {
         Self {
             map: BTreeMap::new(),
+            input,
         }
     }
 
@@ -51,9 +54,10 @@ impl EventQueue {
         }
     }
 
-    pub fn insert_segment(&mut self, p1: Point2, p2: Point2, id: LineSegmentId) {
-        let ep1 = EventPoint(p1);
-        let ep2 = EventPoint(p2);
+    pub fn insert_segment(&mut self, id: LineSegmentId) {
+        let s = self.input.segments[&id];
+        let ep1 = EventPoint(s.p1);
+        let ep2 = EventPoint(s.p2);
         let (upper, lower) = if ep1 < ep2 { (ep1, ep2) } else { (ep2, ep1) };
 
         self.ensure_existence(&upper);
@@ -74,8 +78,10 @@ impl EventQueue {
     pub fn insert_intersection(&mut self, p: Point2, id1: LineSegmentId, id2: LineSegmentId) {
         let ep = EventPoint(p);
         self.ensure_existence(&ep);
-        self.map.get_mut(&ep).unwrap().as_intersection.insert(id1);
-        self.map.get_mut(&ep).unwrap().as_intersection.insert(id2);
+        // TODO: 정말로 interior 인지 검사.
+        // TODO: 혹은 밖에서 interior intersection 만 보고하도록 변경!
+        self.map.get_mut(&ep).unwrap().as_interior.insert(id1);
+        self.map.get_mut(&ep).unwrap().as_interior.insert(id2);
     }
 
     pub fn dequeue_point(&mut self) -> Option<(Point2, EventData)> {
@@ -113,7 +119,7 @@ impl Ord for EventPoint {
 pub struct EventData {
     pub as_upper_endpoint: HashSet<LineSegmentId>,
     pub as_lower_endpoint: HashSet<LineSegmentId>,
-    pub as_intersection: HashSet<LineSegmentId>,
+    pub as_interior: HashSet<LineSegmentId>,
 }
 
 impl EventData {
@@ -121,7 +127,7 @@ impl EventData {
         Self {
             as_upper_endpoint: HashSet::new(),
             as_lower_endpoint: HashSet::new(),
-            as_intersection: HashSet::new(),
+            as_interior: HashSet::new(),
         }
     }
 }
@@ -129,7 +135,10 @@ impl EventData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scenes::line_segment_intersection::logic::LineSegment;
     use common::nannou::prelude::*;
+    use std::collections::HashMap;
+
     #[test]
     fn it_works_1() {
         let p1 = EventPoint(pt2(0.0, 0.0));
@@ -160,39 +169,51 @@ mod tests {
 
     #[test]
     fn event_queue_dequeue_oreder_test_1() {
-        let mut eq = EventQueue::new();
-        eq.insert_segment(pt2(0.0, 0.0), pt2(1.0, 1.0), 0);
-        eq.insert_segment(pt2(0.0, 1.0), pt2(1.0, 0.0), 1);
+        let s1 = LineSegment {
+            p1: pt2(0.0, 0.0),
+            p2: pt2(1.0, 1.0),
+        };
+        let s2 = LineSegment {
+            p1: pt2(0.0, 1.0),
+            p2: pt2(1.0, 0.0),
+        };
+        let mut segments = HashMap::new();
+        segments.insert(0, &s1);
+        segments.insert(1, &s2);
+        let input = Input { segments };
+        let mut eq = EventQueue::new(&input);
+        eq.insert_segment(0);
+        eq.insert_segment(1);
         eq.insert_intersection(pt2(0.5, 0.5), 0, 1);
 
         let (point, data) = eq.dequeue_point().unwrap();
         assert_eq!(point, pt2(0.0, 1.0));
         assert_eq!(data.as_upper_endpoint.len(), 1);
         assert_eq!(data.as_lower_endpoint.len(), 0);
-        assert_eq!(data.as_intersection.len(), 0);
+        assert_eq!(data.as_interior.len(), 0);
 
         let (point, data) = eq.dequeue_point().unwrap();
         assert_eq!(point, pt2(1.0, 1.0));
         assert_eq!(data.as_upper_endpoint.len(), 1);
         assert_eq!(data.as_lower_endpoint.len(), 0);
-        assert_eq!(data.as_intersection.len(), 0);
+        assert_eq!(data.as_interior.len(), 0);
 
         let (point, data) = eq.dequeue_point().unwrap();
         assert_eq!(point, pt2(0.5, 0.5));
         assert_eq!(data.as_upper_endpoint.len(), 0);
         assert_eq!(data.as_lower_endpoint.len(), 0);
-        assert_eq!(data.as_intersection.len(), 2);
+        assert_eq!(data.as_interior.len(), 2);
 
         let (point, data) = eq.dequeue_point().unwrap();
         assert_eq!(point, pt2(0.0, 0.0));
         assert_eq!(data.as_upper_endpoint.len(), 0);
         assert_eq!(data.as_lower_endpoint.len(), 1);
-        assert_eq!(data.as_intersection.len(), 0);
+        assert_eq!(data.as_interior.len(), 0);
 
         let (point, data) = eq.dequeue_point().unwrap();
         assert_eq!(point, pt2(1.0, 0.0));
         assert_eq!(data.as_upper_endpoint.len(), 0);
         assert_eq!(data.as_lower_endpoint.len(), 1);
-        assert_eq!(data.as_intersection.len(), 0);
+        assert_eq!(data.as_interior.len(), 0);
     }
 }

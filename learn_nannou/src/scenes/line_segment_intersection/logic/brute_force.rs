@@ -11,7 +11,7 @@ where
         for j in i..segments.len() {
             let s1 = segments[i];
             let s2 = segments[j];
-            if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
+            if let Some(intersection) = LineSegment::find_interior_intersection(s1, s2) {
                 intersections.push(intersection);
             }
         }

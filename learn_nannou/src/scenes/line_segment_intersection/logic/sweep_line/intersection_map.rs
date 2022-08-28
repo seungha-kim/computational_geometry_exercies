@@ -1,6 +1,7 @@
+use super::distinct_point::DistinctPoint;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
 use common::nannou::prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 struct SegmentPair(LineSegmentId, LineSegmentId);
@@ -15,11 +16,11 @@ impl SegmentPair {
     }
 }
 
-pub struct IntersectionMap {
+pub struct IntersectionCache {
     map: HashMap<SegmentPair, Point2>,
 }
 
-impl IntersectionMap {
+impl IntersectionCache {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -38,7 +39,7 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let mut map = IntersectionMap::new();
+        let mut map = IntersectionCache::new();
         map.insert(0, 1, pt2(0.0, 0.0));
         assert_eq!(map.lookup(0, 1), Some(&pt2(0.0, 0.0)));
         assert!(map.lookup(0, 2).is_none());
