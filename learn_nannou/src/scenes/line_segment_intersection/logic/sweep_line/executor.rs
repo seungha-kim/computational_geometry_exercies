@@ -1,6 +1,6 @@
 use super::super::{LineSegment, LineSegmentIntersectionResult};
 use super::distinct_point::DistinctPoint;
-use super::event_queue::EventDataPerPoint;
+use super::event_queue::{EventData, EventQueue};
 use super::status::{Status, StatusItem};
 use super::Input;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet, Bound};
 
 pub struct Executor<'a> {
     input: Input<'a>,
-    event_queue: BTreeMap<EventPointKey, EventDataPerPoint>,
+    event_queue: EventQueue,
     status: Status,
     output: BTreeSet<DistinctPoint>,
 }
@@ -18,7 +18,7 @@ impl<'a> Executor<'a> {
     pub fn new(input: Input<'a>) -> Self {
         Self {
             input,
-            event_queue: BTreeMap::new(),
+            event_queue: EventQueue::new(),
             status: Status::new(),
             output: BTreeSet::new(),
         }
@@ -26,9 +26,8 @@ impl<'a> Executor<'a> {
 
     pub fn calc_result(mut self) -> LineSegmentIntersectionResult {
         self.initialize_event_queue();
-        while let Some(key) = self.event_queue.keys().cloned().next() {
-            let event_point = self.event_queue.remove(&key).unwrap();
-            self.handle_event_point(key.0, event_point);
+        while let Some((point, data)) = self.event_queue.dequeue_point() {
+            self.handle_event_point(point, data);
         }
         LineSegmentIntersectionResult {
             intersections: self.output.into_iter().map(|item| item.0).collect(),
@@ -134,30 +133,11 @@ impl<'a> Executor<'a> {
 
     fn initialize_event_queue(&mut self) {
         for (id, s) in &self.input.segments {
-            let k1 = EventPointKey(s.p1);
-            let k2 = EventPointKey(s.p2);
-            let (upper_endpoint, lower_endpoint) = if k1 < k2 { (k1, k2) } else { (k2, k1) };
-
-            {
-                if !self.event_queue.contains_key(&upper_endpoint) {
-                    let event_point = EventDataPerPoint::new();
-                    self.event_queue.insert(upper_endpoint.clone(), event_point);
-                }
-                let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
-                ep.as_upper_endpoint.insert(*id);
-            }
-            {
-                if !self.event_queue.contains_key(&lower_endpoint) {
-                    let event_point = EventDataPerPoint::new();
-                    self.event_queue.insert(lower_endpoint, event_point);
-                }
-                let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
-                ep.as_lower_endpoint.insert(*id);
-            }
+            self.event_queue.insert_segment(s.p1, s.p2, *id);
         }
     }
 
-    fn handle_event_point(&mut self, point: Point2, event_point: EventDataPerPoint) {
+    fn handle_event_point(&mut self, point: Point2, event_point: EventData) {
         let upper_count = event_point.as_upper_endpoint.len();
         let lower_count = event_point.as_lower_endpoint.len();
         let interior_count = event_point.as_intersection.len();
@@ -200,15 +180,9 @@ impl<'a> Executor<'a> {
             if intersection.y < current_point.y
                 || (intersection.y == current_point.y && intersection.x > current_point.x)
             {
-                let key = EventPointKey(current_point);
-                if !self.event_queue.contains_key(&key) {
-                    self.event_queue.insert(key, EventDataPerPoint::new());
-                }
-                {
-                    let event_point = self.event_queue.get_mut(&key).unwrap();
-                    event_point.as_intersection.insert(s1_id);
-                    event_point.as_intersection.insert(s2_id);
-                }
+                self.event_queue
+                    .insert_intersection(intersection, s1_id, s2_id);
+                // TODO: output에 추가
             }
         }
     }

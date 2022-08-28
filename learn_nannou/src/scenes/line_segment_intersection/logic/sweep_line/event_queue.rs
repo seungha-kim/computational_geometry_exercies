@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashSet};
 - insert_event, dequeue 메소드를 가짐
 - insert_event 는 특정 점에
 - dequeue 호출 시 sweep line 탐색 순서대로 반환되어야 함
-- (?) dequeue 는 point 를 반환해야 하는가? 그냥 모든 개별 Event 처리 순서를 여기에서 결정하는 것도 좋지 않을까?
+- dequeue 는 point 단위로 뱉음
 
 # Sweep line 탐색 순서 (nannou 기준)
 
@@ -35,7 +35,7 @@ pub enum EventKind {
 }
 
 pub struct EventQueue {
-    map: BTreeMap<EventPoint, EventDataPerPoint>,
+    map: BTreeMap<EventPoint, EventData>,
 }
 
 impl EventQueue {
@@ -47,27 +47,38 @@ impl EventQueue {
 
     fn ensure_existence(&mut self, ep: &EventPoint) {
         if !self.map.contains_key(ep) {
-            self.map[ep] = EventDataPerPoint::new();
+            self.map.insert(ep.clone(), EventData::new());
         }
     }
 
-    pub fn insert_event(&mut self, event_kind: EventKind, p: Point2, id: LineSegmentId) {
-        let ep = EventPoint(p);
-        self.ensure_existence(&ep);
-        match event_kind {
-            EventKind::AsUpperEndpoint => self.map[&ep].as_upper_endpoint.insert(id),
-            EventKind::AsLowerEndpoint => self.map[&ep].as_lower_endpoint.insert(id),
-            EventKind::AsIntersection => self.map[&ep].as_intersection.insert(id),
-        };
+    pub fn insert_segment(&mut self, p1: Point2, p2: Point2, id: LineSegmentId) {
+        let ep1 = EventPoint(p1);
+        let ep2 = EventPoint(p2);
+        let (upper, lower) = if ep1 < ep2 { (ep1, ep2) } else { (ep2, ep1) };
+
+        self.ensure_existence(&upper);
+        self.map
+            .get_mut(&upper)
+            .unwrap()
+            .as_upper_endpoint
+            .insert(id);
+
+        self.ensure_existence(&lower);
+        self.map
+            .get_mut(&lower)
+            .unwrap()
+            .as_lower_endpoint
+            .insert(id);
     }
 
-    pub fn insert_lower_segment(&mut self, p: Point2, id: LineSegmentId) {
+    pub fn insert_intersection(&mut self, p: Point2, id1: LineSegmentId, id2: LineSegmentId) {
         let ep = EventPoint(p);
         self.ensure_existence(&ep);
-        self.map[&ep].as_lower_endpoint.insert(id);
+        self.map.get_mut(&ep).unwrap().as_intersection.insert(id1);
+        self.map.get_mut(&ep).unwrap().as_intersection.insert(id2);
     }
 
-    pub fn dequeue(&mut self) -> Option<(Point2, EventDataPerPoint)> {
+    pub fn dequeue_point(&mut self) -> Option<(Point2, EventData)> {
         self.map
             .keys()
             .cloned()
@@ -99,13 +110,13 @@ impl Ord for EventPoint {
     }
 }
 
-pub struct EventDataPerPoint {
+pub struct EventData {
     pub as_upper_endpoint: HashSet<LineSegmentId>,
     pub as_lower_endpoint: HashSet<LineSegmentId>,
     pub as_intersection: HashSet<LineSegmentId>,
 }
 
-impl EventDataPerPoint {
+impl EventData {
     pub fn new() -> Self {
         Self {
             as_upper_endpoint: HashSet::new(),
