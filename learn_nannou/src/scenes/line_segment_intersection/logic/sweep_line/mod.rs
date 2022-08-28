@@ -6,6 +6,7 @@ mod distinct_point;
 mod event_queue;
 mod executor;
 mod input;
+mod intersection_map;
 mod status;
 
 pub fn calc_intersections<'a, I>(vals: I) -> LineSegmentIntersectionResult
