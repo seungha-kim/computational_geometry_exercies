@@ -1,6 +1,6 @@
 use super::super::{LineSegment, LineSegmentIntersectionResult};
 use super::distinct_point::DistinctPoint;
-use super::event_queue::{EventPoint, EventPointKey};
+use super::event_queue::EventDataPerPoint;
 use super::status::{Status, StatusItem};
 use super::Input;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet, Bound};
 
 pub struct Executor<'a> {
     input: Input<'a>,
-    event_queue: BTreeMap<EventPointKey, EventPoint>,
+    event_queue: BTreeMap<EventPointKey, EventDataPerPoint>,
     status: Status,
     output: BTreeSet<DistinctPoint>,
 }
@@ -140,7 +140,7 @@ impl<'a> Executor<'a> {
 
             {
                 if !self.event_queue.contains_key(&upper_endpoint) {
-                    let event_point = EventPoint::new();
+                    let event_point = EventDataPerPoint::new();
                     self.event_queue.insert(upper_endpoint.clone(), event_point);
                 }
                 let mut ep = self.event_queue.get_mut(&upper_endpoint).unwrap();
@@ -148,7 +148,7 @@ impl<'a> Executor<'a> {
             }
             {
                 if !self.event_queue.contains_key(&lower_endpoint) {
-                    let event_point = EventPoint::new();
+                    let event_point = EventDataPerPoint::new();
                     self.event_queue.insert(lower_endpoint, event_point);
                 }
                 let mut ep = self.event_queue.get_mut(&lower_endpoint).unwrap();
@@ -157,17 +157,17 @@ impl<'a> Executor<'a> {
         }
     }
 
-    fn handle_event_point(&mut self, point: Point2, event_point: EventPoint) {
+    fn handle_event_point(&mut self, point: Point2, event_point: EventDataPerPoint) {
         let upper_count = event_point.as_upper_endpoint.len();
         let lower_count = event_point.as_lower_endpoint.len();
-        let interior_count = event_point.as_interior.len();
+        let interior_count = event_point.as_intersection.len();
         if upper_count + lower_count + interior_count > 1 {
             self.output.insert(DistinctPoint(point.clone()));
         }
         for id in &event_point.as_lower_endpoint {
             self.status.remove(*id);
         }
-        for id in &event_point.as_interior {
+        for id in &event_point.as_intersection {
             let item = self.status.remove(*id).unwrap();
             self.status.push(item);
         }
@@ -202,12 +202,12 @@ impl<'a> Executor<'a> {
             {
                 let key = EventPointKey(current_point);
                 if !self.event_queue.contains_key(&key) {
-                    self.event_queue.insert(key, EventPoint::new());
+                    self.event_queue.insert(key, EventDataPerPoint::new());
                 }
                 {
                     let event_point = self.event_queue.get_mut(&key).unwrap();
-                    event_point.as_interior.insert(s1_id);
-                    event_point.as_interior.insert(s2_id);
+                    event_point.as_intersection.insert(s1_id);
+                    event_point.as_intersection.insert(s2_id);
                 }
             }
         }

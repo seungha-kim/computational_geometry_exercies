@@ -3,6 +3,20 @@ use crate::scenes::line_segment_intersection::logic::{LineSegment, LineSegmentId
 use common::nannou::prelude::*;
 use std::cmp::{max, Ordering};
 
+/**
+
+# Status
+
+- Sweep line 의 특정 위치에서 선분을 왼쪽부터 오른쪽으로 정렬해놓은 상태를 표현하는 자료구조
+
+# 정렬 순서
+
+- Sweep line 과의 교점의 x 좌표가 작은 것부터
+- x 좌표가 같아면, 기울기가 작은 것부터
+- 모두 같다면?
+
+*/
+
 #[derive(Clone)]
 pub struct StatusItem {
     pub line_segment_id: LineSegmentId,
