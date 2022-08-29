@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet, Bound};
 pub struct Executor<'a> {
     input: &'a Input<'a>,
     event_queue: EventQueue<'a>,
-    status: Status,
+    status: Status<'a>,
     intersection_cache: IntersectionCache,
     output: BTreeSet<DistinctPoint>,
 }
@@ -21,7 +21,7 @@ impl<'a> Executor<'a> {
         Self {
             input,
             event_queue: EventQueue::new(input),
-            status: Status::new(),
+            status: Status::new(input),
             intersection_cache: IntersectionCache::new(),
             output: BTreeSet::new(),
         }
@@ -51,26 +51,37 @@ impl<'a> Executor<'a> {
             self.output.insert(DistinctPoint(point.clone()));
         }
         for id in &event_point.as_lower_endpoint {
-            self.status.remove(*id);
+            let (left, right, _) = self.status.remove(*id);
+            left.zip(right)
+                .map(|(left, right)| (left.line_segment_id, right.line_segment_id))
+                .map(|(left_id, right_id)| {
+                    self.find_new_event(left_id, right_id, point);
+                });
         }
         for id in &event_point.as_interior {
-            let item = self.status.remove(*id).unwrap();
-            self.status.push(item);
+            let (left, right) = {
+                let (_, _, item) = self.status.remove(*id);
+                let (left, right) = self.status.insert(item, point);
+                (
+                    left.map(|item| item.line_segment_id),
+                    right.map(|item| item.line_segment_id),
+                )
+            };
+            left.map(|left_id| self.find_new_event(*id, left_id, point));
+            right.map(|right_id| self.find_new_event(*id, right_id, point));
         }
-        for id in event_point.as_upper_endpoint {
+        for id in &event_point.as_upper_endpoint {
             let dir_x = self.input.segments[&id].downward_direction().x;
-            let item = StatusItem::new(id, dir_x);
-            self.status.push(item);
-        }
-        self.status.sort(point, &self.input);
-        if upper_count + interior_count == 0 {
-            if let (Some(left_item), Some(right_item)) =
-                self.status.find_left_and_right(point, &self.input)
-            {
-                self.find_new_event(left_item.line_segment_id, right_item.line_segment_id, point);
-            } else {
-                // TODO: ...
-            }
+            let item = StatusItem::new(*id, dir_x);
+            let (left, right) = {
+                let (left, right) = self.status.insert(item, point);
+                (
+                    left.map(|i| i.line_segment_id),
+                    right.map(|i| i.line_segment_id),
+                )
+            };
+            left.map(|left_id| self.find_new_event(*id, left_id, point));
+            right.map(|right_id| self.find_new_event(*id, right_id, point));
         }
     }
 
@@ -82,26 +93,23 @@ impl<'a> Executor<'a> {
     ) {
         let s1 = self.input.segments[&s1_id];
         let s2 = self.input.segments[&s2_id];
-        let intersection_opt = {
-            if let Some(p) = self.intersection_cache.lookup(s1_id, s2_id) {
-                Some(*p)
-            } else {
-                if let Some(intersection) = LineSegment::find_interior_intersection(s1, s2) {
+        self.intersection_cache
+            .lookup(s1_id, s2_id)
+            .cloned()
+            .or_else(|| {
+                LineSegment::find_interior_intersection(s1, s2).map(|intersection| {
                     self.intersection_cache.insert(s1_id, s2_id, intersection);
                     self.output.insert(DistinctPoint(intersection));
-                    Some(intersection)
-                } else {
-                    None
-                }
-            }
-        };
-        if let Some(intersection) = intersection_opt {
-            if intersection.y < current_point.y
-                || (intersection.y == current_point.y && intersection.x > current_point.x)
-            {
-                self.event_queue
-                    .insert_intersection(intersection, s1_id, s2_id);
-            }
-        }
+                    intersection
+                })
+            })
+            .map(|intersection| {
+                if intersection.y < current_point.y
+                    || (intersection.y == current_point.y && intersection.x > current_point.x)
+                {
+                    self.event_queue
+                        .insert_intersection(intersection, s1_id, s2_id);
+                };
+            });
     }
 }

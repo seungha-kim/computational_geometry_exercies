@@ -34,72 +34,120 @@ impl StatusItem {
     }
 }
 
-pub struct Status {
+pub struct Status<'a> {
     items: Vec<StatusItem>,
+    input: &'a Input<'a>,
 }
 
-impl Status {
-    pub fn new() -> Self {
-        Self { items: Vec::new() }
+impl<'a> Status<'a> {
+    pub fn new(input: &'a Input<'a>) -> Self {
+        Self {
+            items: Vec::new(),
+            input,
+        }
     }
 
-    pub fn push(&mut self, item: StatusItem) {
-        self.items.push(item);
-    }
-
-    pub fn sort(&mut self, current_point: Point2, input: &Input) {
-        // TODO: manual binary search?
+    // returns neighbors
+    pub fn insert(
+        &mut self,
+        item: StatusItem,
+        current_point: Point2,
+    ) -> (Option<&StatusItem>, Option<&StatusItem>) {
         let y = current_point.y;
-        self.items.sort_by(|item1, item2| {
-            let s1 = input.segments[&item1.line_segment_id];
-            let s2 = input.segments[&item2.line_segment_id];
+        let result = self.items.binary_search_by(|target| {
+            let s1 = self.input.segments[&target.line_segment_id];
+            let s2 = self.input.segments[&item.line_segment_id];
             let x1 = Self::find_x(s1, y);
             let x2 = Self::find_x(s2, y);
             match x1.partial_cmp(&x2).unwrap() {
                 Ordering::Equal => {
-                    let d1x = item1.normalized_downward_dir_x;
-                    let d2x = item2.normalized_downward_dir_x;
+                    let d1x = target.normalized_downward_dir_x;
+                    let d2x = item.normalized_downward_dir_x;
                     d1x.partial_cmp(&d2x).unwrap()
                 }
                 ord => ord,
             }
         });
-    }
-
-    pub fn find_left_and_right(
-        &self,
-        current_point: Point2,
-        input: &Input,
-    ) -> (Option<&StatusItem>, Option<&StatusItem>) {
-        let index = self
-            .items
-            .binary_search_by(|item| {
-                let segment = input.segments[&item.line_segment_id];
-                Self::find_x(segment, current_point.y)
-                    .partial_cmp(&current_point.x)
-                    .unwrap()
-            })
-            .expect_err("must not have current point for this stage");
-        let left_item = if index > 0 {
+        let index = if result.is_ok() {
+            result.unwrap()
+        } else {
+            result.unwrap_err()
+        };
+        self.items.insert(index, item);
+        let left = if index > 0 {
             Some(&self.items[index - 1])
         } else {
             None
         };
-        let right_item = if index < self.items.len() {
-            Some(&self.items[index])
+        let right = if index < self.items.len() - 1 {
+            Some(&self.items[index + 1])
         } else {
             None
         };
-        (left_item, right_item)
+        (left, right)
     }
 
-    pub fn remove(&mut self, segment_id: LineSegmentId) -> Option<StatusItem> {
+    // pub fn find_left_and_right(
+    //     &self,
+    //     current_point: Point2,
+    //     input: &Input,
+    // ) -> (Option<&StatusItem>, Option<&StatusItem>) {
+    //     let index = self
+    //         .items
+    //         .binary_search_by(|item| {
+    //             let segment = input.segments[&item.line_segment_id];
+    //             Self::find_x(segment, current_point.y)
+    //                 .partial_cmp(&current_point.x)
+    //                 .unwrap()
+    //         })
+    //         .expect_err("must not have current point for this stage");
+    //     let left_item = if index > 0 {
+    //         Some(&self.items[index - 1])
+    //     } else {
+    //         None
+    //     };
+    //     let right_item = if index < self.items.len() {
+    //         Some(&self.items[index])
+    //     } else {
+    //         None
+    //     };
+    //     (left_item, right_item)
+    // }
+
+    pub fn find_index(&self, id: LineSegmentId) -> usize {
+        self.items
+            .iter()
+            .enumerate()
+            .find(|(_, item)| item.line_segment_id == id)
+            .map(|(index, _)| index)
+            .unwrap()
+    }
+
+    /// returns (original_left_item, original_right_item, removed_item)
+    pub fn remove(
+        &mut self,
+        segment_id: LineSegmentId,
+    ) -> (Option<&StatusItem>, Option<&StatusItem>, StatusItem) {
         self.items
             .iter()
             .enumerate()
             .find(|(_, item)| item.line_segment_id == segment_id)
             .map(|(index, _)| index)
-            .map(|index| self.items.remove(index))
+            .map(|index| {
+                let removed = self.items.remove(index);
+                let left = if index > 0 {
+                    Some(&self.items[index - 1])
+                } else {
+                    None
+                };
+                let right = if index < self.items.len() {
+                    Some(&self.items[index])
+                } else {
+                    None
+                };
+                (left, right, removed)
+            })
+            .unwrap()
     }
 
     fn find_x(s: &LineSegment, y: f32) -> f32 {
@@ -128,36 +176,31 @@ mod tests {
             p1: pt2(-1.0, 1.0),
             p2: pt2(1.0, -1.0),
         };
-        let s3 = LineSegment {
-            p1: pt2(2.0, 1.0),
-            p2: pt2(-2.0, -1.0),
-        };
         let mut input = Input {
             segments: HashMap::new(),
         };
         input.segments.insert(0, &s1);
         input.segments.insert(1, &s2);
-        input.segments.insert(2, &s3);
 
         let zero = pt2(0.0, 0.0);
-        let mut status = Status::new();
-        status.push(StatusItem {
-            line_segment_id: 0,
-            normalized_downward_dir_x: s1.downward_direction().x,
-        });
-        status.push(StatusItem {
-            line_segment_id: 1,
-            normalized_downward_dir_x: s2.downward_direction().x,
-        });
-        status.push(StatusItem {
-            line_segment_id: 2,
-            normalized_downward_dir_x: s3.downward_direction().x,
-        });
-        status.sort(zero, &input);
+        let mut status = Status::new(&input);
+        status.insert(
+            StatusItem {
+                line_segment_id: 0,
+                normalized_downward_dir_x: s1.downward_direction().x,
+            },
+            pt2(-1.0, 1.0),
+        );
+        status.insert(
+            StatusItem {
+                line_segment_id: 1,
+                normalized_downward_dir_x: s2.downward_direction().x,
+            },
+            pt2(1.0, 1.0),
+        );
 
-        assert_eq!(status.items.len(), 3);
-        assert_eq!(status.items[0].line_segment_id, 2);
+        assert_eq!(status.items.len(), 2);
+        assert_eq!(status.items[0].line_segment_id, 1);
         assert_eq!(status.items[1].line_segment_id, 0);
-        assert_eq!(status.items[2].line_segment_id, 1);
     }
 }
