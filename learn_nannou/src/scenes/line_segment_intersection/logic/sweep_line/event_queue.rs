@@ -1,6 +1,6 @@
 use super::input::Input;
 use crate::scenes::line_segment_intersection::logic::LineSegmentId;
-use common::nannou::geom::Point2;
+use common::nannou::prelude::*;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 

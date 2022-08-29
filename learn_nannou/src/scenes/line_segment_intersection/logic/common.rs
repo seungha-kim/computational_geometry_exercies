@@ -26,7 +26,8 @@ impl LineSegment {
         normalized
     }
 
-    pub fn find_interior_intersection(s1: &LineSegment, s2: &LineSegment) -> Option<Point2> {
+    // TODO: 교점에 어디서 발생했는지 (끝점인지, 중간인지) 반환
+    pub fn find_intersection(s1: &LineSegment, s2: &LineSegment) -> Option<Point2> {
         let LineSegment {
             p1: s1p1, p2: s1p2, ..
         } = s1;
@@ -48,7 +49,7 @@ impl LineSegment {
         } else {
             (candidate.y - s1p1.y) / (s1p2.y - s1p1.y)
         };
-        if t <= 0.0 || t >= 1.0 {
+        if t < 0.0 || t > 1.0 {
             return None;
         }
         let u = if v2.x.abs() > v2.y.abs() {
@@ -56,7 +57,7 @@ impl LineSegment {
         } else {
             (candidate.y - s2p1.y) / (s2p2.y - s2p1.y)
         };
-        if u <= 0.0 || u >= 1.0 {
+        if u < 0.0 || u > 1.0 {
             return None;
         }
         Some(candidate)

@@ -44,6 +44,7 @@ impl<'a> Executor<'a> {
     }
 
     fn handle_event_point(&mut self, point: Point2, event_point: EventData) {
+        // TODO: 발견되는 교점의 개수가 실행할 때마다 다르게 나오는 문제
         let upper_count = event_point.as_upper_endpoint.len();
         let lower_count = event_point.as_lower_endpoint.len();
         let interior_count = event_point.as_interior.len();
@@ -91,25 +92,23 @@ impl<'a> Executor<'a> {
         s2_id: LineSegmentId,
         current_point: Point2,
     ) {
+        if self.intersection_cache.lookup(s1_id, s2_id).is_some() {
+            return;
+        }
+
         let s1 = self.input.segments[&s1_id];
         let s2 = self.input.segments[&s2_id];
-        self.intersection_cache
-            .lookup(s1_id, s2_id)
-            .cloned()
-            .or_else(|| {
-                LineSegment::find_interior_intersection(s1, s2).map(|intersection| {
-                    self.intersection_cache.insert(s1_id, s2_id, intersection);
-                    self.output.insert(DistinctPoint(intersection));
-                    intersection
-                })
-            })
-            .map(|intersection| {
-                if intersection.y < current_point.y
-                    || (intersection.y == current_point.y && intersection.x > current_point.x)
-                {
-                    self.event_queue
-                        .insert_intersection(intersection, s1_id, s2_id);
-                };
-            });
+
+        if let Some(intersection) = LineSegment::find_intersection(s1, s2) {
+            self.intersection_cache.insert(s1_id, s2_id, intersection);
+            self.output.insert(DistinctPoint(intersection));
+
+            if intersection.y < current_point.y
+                || (intersection.y == current_point.y && intersection.x > current_point.x)
+            {
+                self.event_queue
+                    .insert_intersection(intersection, s1_id, s2_id);
+            };
+        }
     }
 }
